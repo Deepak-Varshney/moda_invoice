@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "lib/db.js", "models/productModel.js", "components/ui/data-table.tsx", "components/tables/my-table/my-table.tsx", "app/(dashboard)/dashboard/product/page.tsx", "app/(dashboard)/dashboard/invoice/[invoiceId]/page.tsx", "app/api/dataDashboard/route.ts"],
+  "exclude": ["node_modules"]
+}
