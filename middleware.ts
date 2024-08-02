@@ -8,23 +8,16 @@ import { NextResponse } from 'next/server';
 
 const { auth } = NextAuth(authConfig);
 
-// export default auth((req) => {
-//   if (true) {
-//     // Bypass authentication during development
-//     return NextResponse.next();
-//   }
-
-//   if (!req.auth) {
-//     const url = req.url.replace(req.nextUrl.pathname, '/');
-//     return Response.redirect(url);
-//   }
-// });
 export default auth((req) => {
-  // Bypass authentication during development
-  return NextResponse.next();
+  if (true) {
+    // Bypass authentication during development
+    return NextResponse.next();
+  }
+
+  if (!req.auth) {
+    const url = req.url.replace(req.nextUrl.pathname, '/');
+    return Response.redirect(url);
+  }
 });
 
-export const config = {
-  matcher: ['/dashboard/:path*'], // Adjust this pattern as needed for your routes
-};
-
+export const config = { matcher: ['/dashboard/:path*'] };
