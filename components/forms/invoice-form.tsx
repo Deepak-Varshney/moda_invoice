@@ -6,11 +6,10 @@ import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../ui/use-toast';
 import { AddCustomerDialog } from '../AddCustomerDialogue';
-import InvoicePreviewDialog from '../invoicepreviewDialogue';
 import { Customer } from '@/constants/data';
 import InvoicePage from '../invoice-page';
 import { ScrollArea } from '../ui/scroll-area';
-import { IInvoice } from '@/types/invoice';
+import { IInvoice, IPaymentMode } from '@/types/invoice';
 import CircularLoader from '../loader/circular';
 import { debounce } from '@/utils/helpers';
 import { AiOutlineDelete } from 'react-icons/ai';
@@ -19,6 +18,8 @@ import { IProduct } from '@/types/product';
 import { useBarcodeScan } from '@/hooks/useBarcodeScan';
 import { Heading } from '../ui/heading';
 import { Separator } from '../ui/separator';
+import Image from 'next/image';
+import { useReactToPrint } from 'react-to-print';
 
 interface SelectedProduct extends IProduct {
   quantity: number;
@@ -49,8 +50,11 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
     []
   );
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [invoiceData, setInvoiceData] = useState<IInvoice | null>(null);
+  const [paymentMode, setPaymentMode] = useState<IPaymentMode>(
+    IPaymentMode.CASH
+  );
+  // const [invoiceData, setInvoiceData] = useState<IInvoice | null>(null);
+
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
   const title = initialData ? 'View Invoice' : 'Create Invoice';
   const description = initialData
@@ -91,7 +95,9 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
 
   const handleBarcodeScan = useCallback(
     (skuCode: string) => {
-      const scannedProduct = products.find((p) => p.skuCode === p.skuCode);
+      const scannedProduct = products.find(
+        (p) => p.skuCode.toString() === skuCode?.toString()
+      );
       if (!scannedProduct) {
         toast({
           variant: 'destructive',
@@ -129,14 +135,11 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
   }, []);
 
   const fetchCustomers = async (query: string) => {
-    console.log(`Fetching customers for query: ${query}`);
-
     try {
       setCustomers((prev) => ({ ...prev, isLoading: true }));
       const response = await axios.get(`/api/customers?q=${query}`);
       setCustomers({ data: response.data.data, isLoading: false });
     } catch (error) {
-      console.error('Error fetching customers:', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -212,46 +215,12 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
     setSelectedProducts(updatedProducts);
   };
 
-  const handlePreview = async () => {
-    if (!selectedCustomer) {
-      toast({
-        variant: 'destructive',
-        title: 'Customer Not Found ',
-        description: 'You have not selected any customer'
-      });
-      setIsPreviewOpen(true);
-      return;
-    }
-    const generatedInvoiceData: IInvoice = {
-      _id: '',
-      invoiceNumber: invoiceNumber || '',
-      customer: {
-        id: selectedCustomer?._id,
-        name: selectedCustomer?.name,
-        phone: selectedCustomer?.phone,
-        gender: selectedCustomer?.gender
-      },
-      products: selectedProducts.map((product) => ({
-        productName: product.name,
-        productId: product._id,
-        quantity: product.quantity,
-        price: product.sellingPrice,
-        _id: product._id
-      })),
-      totalAmount,
-      totalQuantity,
-      issueDate: ''
-    };
-    setInvoiceData(generatedInvoiceData);
-    setIsPreviewOpen(true);
-  };
+  const currentDateUTC = new Date();
+  const ISTOffset = 330 * 60000;
+  const currentDateIST = new Date(currentDateUTC.getTime() + ISTOffset);
+  const issueDate = currentDateIST.toLocaleDateString('en-GB');
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (open || isPreviewOpen) {
-      return;
-    }
-
+  const createInvoice = async () => {
     const invoiceData = {
       invoiceNumber,
       customer: {
@@ -266,28 +235,27 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
         price: product.sellingPrice
       })),
       totalAmount,
-      totalQuantity
+      totalQuantity,
+      paymentMode
     };
 
     try {
-      await axios.post('/api/invoices', invoiceData);
+      const res = await axios.post('/api/invoices', invoiceData);
       toast({
         variant: 'default',
         title: 'Invoice Added Success',
         description: 'Your invoice has been added to your database.'
       });
+      router.push('/dashboard/invoice');
       // Reset form
       setSelectedCustomer(null);
       setSelectedProducts([]);
-      router.push(`/dashboard/invoice`);
-      router.refresh();
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Uh oh! Something went wrong.',
         description: 'There was a problem with your request.'
       });
-      console.error('Error creating invoice:', error);
     }
   };
 
@@ -296,6 +264,12 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
       ? product.name.toLowerCase().includes(searchProduct.toLowerCase())
       : true
   );
+
+  const slidesRef = useRef(null);
+
+  const handlePrint = useReactToPrint({
+    content: () => slidesRef.current
+  });
 
   return (
     <ScrollArea className="h-[80vh]">
@@ -313,7 +287,7 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
           <ScrollArea className="h-[80vh] rounded-md border">
             <div className="p-2">
               <div className="mx-auto max-w-2xl p-4">
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-primary">
                       Customer
@@ -387,7 +361,7 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
                           () =>
                             setTimeout(
                               () => setShouldShowProductDropdown(false),
-                              500
+                              250
                             ) // Ui hack
                         }
                         className="mt-1 block w-full rounded-md border border-border p-2"
@@ -489,30 +463,57 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
                           {totalQuantity}
                         </p>
                       </div>
-                      <Button
-                        onClick={handlePreview}
-                        disabled={!selectedCustomer}
-                      >
-                        Preview Invoice
-                      </Button>
                     </>
                   ) : null}
+                  <div className="flex items-center space-x-4">
+                    <label className="block text-sm font-medium text-primary">
+                      Payment Mode
+                    </label>
+                    <div className="flex space-x-4">
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="paymentMode"
+                          value={IPaymentMode.CASH}
+                          checked={paymentMode === IPaymentMode.CASH}
+                          onChange={(e: any) =>
+                            setPaymentMode(e.target.value as IPaymentMode)
+                          }
+                          className="form-radio"
+                        />
+                        <span>Cash</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="paymentMode"
+                          value={IPaymentMode.UPI}
+                          checked={paymentMode === IPaymentMode.UPI}
+                          onChange={(e: any) =>
+                            setPaymentMode(e.target.value as IPaymentMode)
+                          }
+                          className="form-radio"
+                        />
+                        <span>UPI</span>
+                      </label>
+                    </div>
+                  </div>
 
-                  {isPreviewOpen && (
-                    <InvoicePreviewDialog
-                      isOpen={isPreviewOpen}
-                      onClose={() => setIsPreviewOpen(false)}
-                      invoiceData={invoiceData}
-                    />
-                  )}
                   <div className="mt-4 flex justify-end space-x-4">
                     <Button
-                      type="submit"
                       variant="default"
                       disabled={!selectedCustomer || products.length === 0}
+                      onClick={async () => {
+                        createInvoice();
+                        handlePrint(() => {
+                          router.refresh();
+                          router.push('/dashboard/invoice');
+                        });
+                      }}
                     >
-                      Save Invoice
+                      Save & Print
                     </Button>
+
                     <Button
                       type="button"
                       variant="outline"
@@ -520,6 +521,168 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
                     >
                       Cancel
                     </Button>
+                    <div
+                      ref={slidesRef}
+                      style={{
+                        visibility: 'hidden',
+                        width: '39mm', // Slightly increased width
+                        fontSize: '10px',
+                        fontFamily: 'monospace' // Applying the VT323 font
+                      }}
+                      className="invoice-container mx-auto my-6 max-w-3xl rounded bg-white p-6 shadow-sm"
+                      id="invoice"
+                    >
+                      <main className="flex items-center justify-between text-right">
+                        <div className="text-left text-black">
+                          <Image
+                            src="/logo2.png"
+                            alt="Logo"
+                            width={80}
+                            height={80}
+                          />
+                        </div>
+                        <div>
+                          <h1 className="font-bold text-black">Invoice</h1>
+                          <p className="text-black">vermoda.in</p>
+                          <p className="mt-1 text-black">+91 9773927417</p>
+                        </div>
+                      </main>
+
+                      <div className="mt-3 grid grid-cols-2 items-center">
+                        <div>
+                          <p className="font-bold text-black">Bill to :</p>
+                          <p className="font-semibold text-black">
+                            {selectedCustomer?.name}
+                            <br />
+                            {selectedCustomer?.phone}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p>
+                            <span className="text-black"> {invoiceNumber}</span>
+                          </p>
+                          <p>
+                            <span className="text-black">{issueDate}</span>
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-2 flow-root">
+                        <table className="min-w-full">
+                          <colgroup>
+                            <col className="w-1/2" />
+                            <col className="w-1/6" />
+                            <col className="w-1/6" />
+                            <col className="w-1/6" />
+                          </colgroup>
+                          <thead className="border-b border-dashed border-gray-700 text-black">
+                            <tr>
+                              <th
+                                scope="col"
+                                className="py-1 text-left text-sm font-semibold text-black"
+                              >
+                                Item
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-1 py-1 text-right text-sm font-semibold text-black"
+                              >
+                                Qty
+                              </th>
+                              <th
+                                scope="col"
+                                className="px-1 py-1 text-right text-sm font-semibold text-black"
+                              >
+                                Rate
+                              </th>
+                              <th
+                                scope="col"
+                                className="py-1 text-right text-sm font-semibold text-black"
+                              >
+                                Total
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedProducts?.map((product) => (
+                              <tr key={product._id}>
+                                <td className="overflow-ellipsis py-1 text-sm text-black">
+                                  <div className="font-medium">
+                                    {product.name}
+                                  </div>
+                                </td>
+                                <td className="px-1 py-1 text-left text-sm text-black">
+                                  {product.quantity}
+                                </td>
+                                <td className="px-1 py-1 text-sm text-black">
+                                  {product.sellingPrice}
+                                </td>
+                                <td className="py-1 text-right text-sm text-black">
+                                  {product.quantity * product.sellingPrice}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr>
+                              <th
+                                scope="row"
+                                colSpan={3}
+                                className="pt-3 text-right text-sm font-normal text-black"
+                              >
+                                Subtotal
+                              </th>
+                              <td className="mr-3 pt-3 text-right text-sm text-black">
+                                ₹{totalAmount}
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                      <div className="mt-2 border-t border-dashed border-gray-700 text-center text-[7px] text-black">
+                        Thank you for your purchase.
+                      </div>
+                      <style jsx>{`
+                        @media print {
+                          body * {
+                            visibility: hidden;
+                          }
+                          #invoice,
+                          #invoice * {
+                            visibility: visible;
+                          }
+                          #invoice {
+                            width: 48mm; /* Adjusted width for better fit */
+                            margin: 0;
+                            padding: 0;
+                            font-size: 10px; /* Adjust font size as needed */
+                            color: #000;
+                          }
+                          #invoice h1,
+                          #invoice h2,
+                          #invoice h3,
+                          #invoice p,
+                          #invoice table,
+                          #invoice th,
+                          #invoice td {
+                            margin: 0;
+                            padding: 0;
+                            line-height: 1.2;
+                          }
+                          #invoice table {
+                            width: 100%;
+                            border-collapse: collapse;
+                          }
+                          #invoice th,
+                          #invoice td {
+                            padding: 1px;
+                            font-size: 9px; /* Smaller font size for table elements */
+                          }
+                          #invoice th {
+                            text-align: left;
+                          }
+                        }
+                      `}</style>
+                    </div>
                   </div>
                 </form>
               </div>
