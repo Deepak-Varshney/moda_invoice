@@ -1,0 +1,80 @@
+const CODES = [
+  {
+    name: "FLAT100",
+    maxDiscountValue: 100,
+    minInvoiceValue: 1000,
+    type: "FLAT",
+  },
+  {
+    name: "BUY1GET1",
+    type: "BOGO",
+    eligibleItems: ["JEANS", "SHIRT"],
+  },
+  {
+    name: "GET30",
+    type: "PERCENT",
+    discountPercentage: 30,
+    minInvoiceValue: 100000,
+  },
+];
+
+const Invoice = {
+  customerName: "John Doe",
+  invoiceValue: 20000,
+  items: [
+    {
+      name: "SHIRT",
+      quantity: 4,
+      price: 5000,
+    },
+  ],
+};
+
+const applyDiscount = (invoice, discountCodes) => {
+  let discount = 0;
+
+  discountCodes.forEach((code) => {
+    if (code.type === "FLAT") {
+      if (invoice.invoiceValue >= code.minInvoiceValue) {
+        discount = code.maxDiscountValue;
+      }
+    }
+
+    if (code.type === "BOGO") {
+      const eligibleItems = code.eligibleItems;
+
+      let eligibleItemsDiscount = 0;
+
+      eligibleItems.forEach((element) => {
+        const eligibleItemsCount = invoice.items.filter(
+          (item) => item.name === element
+        ).length;
+
+        const eligibleItemsPrice = invoice.items.find(
+          (item) => item.name === element
+        )?.price;
+
+        if (eligibleItemsPrice) {
+          eligibleItemsDiscount +=
+            Math.floor(eligibleItemsCount / 2) * eligibleItemsPrice;
+        }
+      });
+
+      discount = Math.max(discount, eligibleItemsDiscount);
+    }
+
+    if (code.type === "PERCENT") {
+      if (invoice.invoiceValue >= code.minInvoiceValue) {
+        const localDiscount =
+          (invoice.invoiceValue * code.discountPercentage) / 100;
+        discount = Math.max(discount, localDiscount);
+      }
+    }
+  });
+
+  console.log("Discount applied: ", discount);
+
+  return discount;
+};
+
+applyDiscount(Invoice, CODES);
