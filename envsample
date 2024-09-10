@@ -1,0 +1,7 @@
+NEXTAUTH_URL=http://localhost:3000
+# NEXTAUTH_SECRET=XGmtTyIrTurchRHHz2+mXrYSRRuSe5kUc+RuYWGUYwg=
+NEXTAUTH_SECRET=FdpgXwOAT8kj10NWDLZ5Jyf/92uyrV6QPaX2OVvNkXc=
+GOOGLE_ID=98132384377-79ceoob8hlo6j68v6hph7hq5kttqpaef.apps.googleusercontent.com
+GOOGLE_SECRET=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
+DEPLOYED_URL=http://localhost:3000
+MONGODB_URI = mongodb+srv://deepakvarshneycom:MRvbZH3GqJ5k7FEJ@cluster0.qllt4ki.mongodb.net/
