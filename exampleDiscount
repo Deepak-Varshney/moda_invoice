@@ -1,0 +1,193 @@
+interface IProduct {
+  productName: string;
+  productId: string;
+  quantity: number;
+  price: number;
+}
+
+interface IInvoice {
+  customer: {
+    id: string;
+    name: string;
+    phone: string;
+  };
+  products: IProduct[];
+  totalAmount: number;
+  totalQuantity: number;
+  paymentMode: string;
+  issueDate: string;
+  codeName: string | null;
+  codeType: string | null;
+  codeId: string | null;
+  discountValue: number;
+  isDiscountApplied: boolean;
+  finalInvoiceValue: number;
+}
+
+interface ICouponCode {
+  code: string;
+  type: 'FLAT' | 'BOGO' | 'PERCENTAGE';
+  _id: string;
+  minAmount?: number;
+  flatAmount?: number;
+  maxDiscount?: number;
+  percentage?: number;
+  eligibleProducts?: { productId: string }[];
+  buyQuantity?: number;
+  getQuantity?: number;
+}
+
+const applyDiscount = (invoice: IInvoice, discountCodes: ICouponCode[]) => {
+  let discount = 0;
+  let bestCode: ICouponCode | null = null;
+
+  console.log('Original invoice value: ₹', invoice.totalAmount);
+
+  discountCodes.forEach((code) => {
+    let currentDiscount = 0;
+    let details = {
+      codeName: code.code,
+      codeType: code.type,
+      codeId: code._id,
+      discountValue: 0
+    };
+
+    switch (code.type) {
+      case 'FLAT':
+        if (invoice.totalAmount >= (code.minAmount || 0)) {
+          currentDiscount = Math.min(
+            code.flatAmount || 0,
+            code.maxDiscount || Infinity
+          );
+          details.discountValue = currentDiscount;
+        }
+        break;
+
+      case 'BOGO':
+        if (code.eligibleProducts.length > 0) {
+          let eligibleItemsDiscount = 0;
+
+          const productMap = new Map(invoice.products.map(p => [p.productId, p]));
+
+          code.eligibleProducts.forEach((element) => {
+            const item = productMap.get(element.productId);
+            if (item && item.quantity >= (code.buyQuantity || 1)) {
+              const freeItems =
+                Math.floor(item.quantity / (code.buyQuantity || 1)) * (code.getQuantity || 0);
+              eligibleItemsDiscount += freeItems * item.price;
+            }
+          });
+
+          currentDiscount = eligibleItemsDiscount;
+          details.discountValue = currentDiscount;
+        }
+        break;
+
+      case 'PERCENTAGE':
+        if (invoice.totalAmount >= (code.minAmount || 0)) {
+          currentDiscount =
+            (invoice.totalAmount * (code.percentage || 0)) / 100;
+          currentDiscount = Math.min(
+            currentDiscount,
+            code.maxDiscount || Infinity
+          );
+          details.discountValue = currentDiscount;
+        }
+        break;
+    }
+
+    if (currentDiscount > discount) {
+      discount = currentDiscount;
+      bestCode = details;
+    }
+  });
+
+  const discountedValue = invoice.totalAmount - discount;
+
+  console.log('Best discount code applied:', bestCode);
+  console.log('Discount amount: ₹', discount);
+  console.log('Discounted invoice value: ₹', discountedValue);
+
+  return bestCode ? { ...bestCode, discountValue: discount } : null;
+};
+
+const createInvoice = async () => {
+  const invoiceData: IInvoice = {
+    customer: {
+      id: selectedCustomer?._id || '',
+      name: selectedCustomer?.name || '',
+      phone: selectedCustomer?.phone || ''
+    },
+    products: selectedProducts.map((product) => ({
+      productName: product.name,
+      productId: product._id,
+      quantity: product.quantity,
+      price: product.sellingPrice
+    })),
+    totalAmount,
+    totalQuantity,
+    paymentMode,
+    issueDate: invoiceDate,
+    codeName: null,
+    codeType: null,
+    codeId: null,
+    discountValue: 0,
+    isDiscountApplied: false,
+    finalInvoiceValue: totalAmount
+  };
+
+  try {
+    const response = await axios.get('/api/coupons');
+    const discountCodes: ICouponCode[] = response.data.data;
+    setdiscountCodes(discountCodes);
+
+    const discount = applyDiscount(invoiceData, discountCodes);
+
+    if (discount) {
+      invoiceData.codeName = discount.codeName;
+      invoiceData.codeType = discount.codeType;
+      invoiceData.codeId = discount.codeId;
+      invoiceData.discountValue = discount.discountValue;
+      invoiceData.isDiscountApplied = true;
+      invoiceData.finalInvoiceValue -= discount.discountValue;
+
+      toast({
+        variant: 'default',
+        title: 'Discount Applied',
+        description: `A discount of ₹${discount.discountValue} has been applied. Final invoice value is ₹${invoiceData.finalInvoiceValue}.`
+      });
+      alert(`Wow, you saved ₹${discount.discountValue}`);
+    }
+
+    if (initialData) {
+      await axios.put(`/api/invoices/${initialData._id}`, invoiceData);
+      toast({
+        variant: 'default',
+        title: 'Invoice Updated',
+        description: 'The invoice has been updated successfully.'
+      });
+    } else {
+      await axios.post('/api/invoices', invoiceData);
+      toast({
+        variant: 'default',
+        title: 'Invoice Added',
+        description: 'Your invoice has been added successfully.'
+      });
+    }
+
+    await Promise.all(
+      invoiceData.products.map((product) =>
+        axios.patch(`/api/products`, {
+          productId: product.productId,
+          quantity: -product.quantity
+        })
+      )
+    );
+  } catch (error) {
+    toast({
+      variant: 'destructive',
+      title: 'Error',
+      description: 'There was a problem processing your request.'
+    });
+  }
+};
