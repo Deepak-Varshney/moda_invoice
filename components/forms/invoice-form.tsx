@@ -9,7 +9,7 @@ import { AddCustomerDialog } from '../AddCustomerDialogue';
 import { Customer } from '@/constants/data';
 import InvoicePage from '../invoice-page';
 import { ScrollArea } from '../ui/scroll-area';
-import { IInvoice, IPaymentMode } from '@/types/invoice';
+import { IInvoice } from '@/types/invoice';
 import CircularLoader from '../loader/circular';
 import { debounce } from '@/utils/helpers';
 import { AiOutlineDelete } from 'react-icons/ai';
@@ -19,7 +19,6 @@ import { useBarcodeScan } from '@/hooks/useBarcodeScan';
 import { Heading } from '../ui/heading';
 import { Separator } from '../ui/separator';
 import Image from 'next/image';
-import { useReactToPrint } from 'react-to-print';
 
 interface SelectedProduct extends IProduct {
   quantity: number;
@@ -50,8 +49,7 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
     []
   );
-  const [paymentMode, setPaymentMode] = useState<IPaymentMode>(
-    IPaymentMode.CASH
+  const [paymentMode, setPaymentMode] = useState<any>(
   );
   // const [invoiceData, setInvoiceData] = useState<IInvoice | null>(null);
 
@@ -267,9 +265,9 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
 
   const slidesRef = useRef(null);
 
-  const handlePrint = useReactToPrint({
-    content: () => slidesRef.current
-  });
+  const handlePrint = () => {
+    console.log("Print")
+  }
 
   return (
     <ScrollArea className="h-[80vh]">
@@ -465,39 +463,6 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
                       </div>
                     </>
                   ) : null}
-                  <div className="flex items-center space-x-4">
-                    <label className="block text-sm font-medium text-primary">
-                      Payment Mode
-                    </label>
-                    <div className="flex space-x-4">
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          name="paymentMode"
-                          value={IPaymentMode.CASH}
-                          checked={paymentMode === IPaymentMode.CASH}
-                          onChange={(e: any) =>
-                            setPaymentMode(e.target.value as IPaymentMode)
-                          }
-                          className="form-radio"
-                        />
-                        <span>Cash</span>
-                      </label>
-                      <label className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          name="paymentMode"
-                          value={IPaymentMode.UPI}
-                          checked={paymentMode === IPaymentMode.UPI}
-                          onChange={(e: any) =>
-                            setPaymentMode(e.target.value as IPaymentMode)
-                          }
-                          className="form-radio"
-                        />
-                        <span>UPI</span>
-                      </label>
-                    </div>
-                  </div>
 
                   <div className="mt-4 flex justify-end space-x-4">
                     <Button
@@ -505,10 +470,9 @@ export const AddInvoiceForm: React.FC<InvoiceFormProps> = ({ initialData }) => {
                       disabled={!selectedCustomer || products.length === 0}
                       onClick={async () => {
                         createInvoice();
-                        handlePrint(() => {
-                          router.refresh();
-                          router.push('/dashboard/invoice');
-                        });
+                        router.refresh();
+                        router.push('/dashboard/invoice');
+
                       }}
                     >
                       Save & Print

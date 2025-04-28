@@ -11,7 +11,7 @@ export default function Header() {
       <nav className="flex h-14 items-center justify-between px-4">
         <div className="hidden lg:block">
           <Link href={''}>
-            <Image src="https://vermoda.in/assets/img/logo.png" alt="Logo" width={96} height={80} />
+            <Image src="" alt="Logo" width={96} height={80} />
           </Link>
         </div>
         <div className={cn('block lg:!hidden')}>

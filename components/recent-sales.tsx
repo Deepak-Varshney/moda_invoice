@@ -31,7 +31,7 @@ interface RecentSalesProps {
 export function RecentSales({ sales }: RecentSalesProps) {
   return (
     <div className="space-y-8">
-      {sales.map((sale, index) => (
+      {sales?.map((sale, index) => (
         <div key={index} className="flex items-center">
           <Avatar className="h-9 w-9">
             {/* Placeholder for AvatarImage and AvatarFallback */}

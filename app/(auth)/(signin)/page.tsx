@@ -26,8 +26,8 @@ export default function AuthenticationPage() {
         <div className="absolute inset-0 bg-zinc-900" />
         <div className="relative z-20 flex items-center text-lg font-medium">
         <div className="hidden lg:block">
-          <Link href={'https://vermoda.in'} target="_blank">
-            <Image src="https://vermoda.in/assets/img/logo.png" alt="Logo" width={96} height={80} />
+          <Link href={''} target="_blank">
+            <Image src="" alt="Logo" width={96} height={80} />
           </Link>
         </div>
         </div>
